@@ -48,8 +48,8 @@
 //  def getPipeline = {
 //    val pipeline = Channels.pipeline()
 //    pipeline.addLast("line", new DelimiterBasedFrameDecoder(100, Delimiters.lineDelimiter: _*))
-//    pipeline.addLast("stringDecoder", new StringDecoder(CharsetUtil.UTF_8))
-//    pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.UTF_8))
+//    pipeline.addLast("stringDecoder", new StringDecoder(CharsetUtil.US_ASCII))
+//    pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.US_ASCII))
 //    pipeline
 //  }
 //}

@@ -2,20 +2,16 @@ package task
 
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
 
-case class CountingTailer(private val q: SingleChronicleQueue) {
+case class CountingTailer(private val queue: SingleChronicleQueue) {
 
-  private final val tailer = q.createTailer
+  private final val tailer = queue.createTailer
 
-  def entryCount: Long = { // todo: remove?
-    tailer.toEnd
-    val lastIndex = tailer.index
-    if (lastIndex == 0) return 0
-    q.countExcerpts(q.firstIndex, lastIndex)
+  def entryCount: Long = /* synchronized */ { // todo: remove? /* synchronized */?
+    val lastIndex = end
+    if (lastIndex == 0) 0
+    else queue.countExcerpts(queue.firstIndex, lastIndex)
   }
 
-  def end: Long = {
-    tailer.toEnd
-    tailer.index
-  }
+  def end: Long = /* synchronized */(tailer.toEnd.index) // todo: /* synchronized */
 
 }

@@ -41,7 +41,7 @@ object ReadWriteAndDeleteRollingFiles {
 
     val a = q.acquireAppender()
 
-    //    val t = q.createTailer("default")
+    //    val t = q.createTailer(defaultTailer)
     val t = SingleChronicleQueueBuilder.binary(path).storeFileListener(listener).build().createTailer()
 
     var i = 1

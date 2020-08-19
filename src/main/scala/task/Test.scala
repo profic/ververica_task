@@ -6,6 +6,7 @@ import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
 import net.openhft.chronicle.queue.{ExcerptTailer, RollCycles}
 import net.openhft.chronicle.wire.Wire
 import org.apache.commons.lang3.RandomStringUtils
+import task.C.defaultTailer
 
 object Test {
 
@@ -17,7 +18,16 @@ object Test {
       .build()
 
     val a = q.acquireAppender()
-    val t = q.createTailer("default")
+    val t = q.createTailer(defaultTailer)
+//    val t2 = q.createTailer(defaultTailer)
+//
+//    a.writeText("string1")
+//    a.writeText("string2")
+//
+//    println(s"t.readText() = ${t.readText()}")
+//    println(s"t2.readText() = ${t2.readText()}")
+//
+//    sys.exit(0)
 
 //    val i = "test_"
     def i = {

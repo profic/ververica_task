@@ -1,10 +1,8 @@
 package task
 
-import java.nio.charset.StandardCharsets
+import java.nio.charset.StandardCharsets.US_ASCII
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
-
-import scala.util.Random
 
 import net.openhft.chronicle.queue.{ChronicleQueue, ExcerptAppender}
 import net.openhft.chronicle.wire.Wire
@@ -20,13 +18,13 @@ object createDirs {
       "a.writeText",
     )
 
-    m.map(o => s"""D:/ververica_task/small_$o""").foreach(p => Files.createDirectory(Paths.get(p)))
-    m.map(o => s"""D:/ververica_task/large_$o""").foreach(p => Files.createDirectory(Paths.get(p)))
+    m.map(o => s"""D:/ververica_task_size_test/small_$o""").foreach(p => Files.createDirectory(Paths.get(p)))
+    m.map(o => s"""D:/ververica_task_size_test/large_$o""").foreach(p => Files.createDirectory(Paths.get(p)))
   }
 }
 
 object SizeTest {
-  val iter = 3 * 1000 * 1000
+  val iter = 3  * 1000 * 1000
 
   /*
     string : small/large
@@ -38,7 +36,7 @@ object SizeTest {
      - a.writeText
   */
 
-  val base = """D:/ververica_task/"""
+  val base = """D:/ververica_task_size_test/"""
 
   def main(args: Array[String]): Unit = {
 
@@ -87,7 +85,7 @@ object SizeTest {
 
           val start = System.currentTimeMillis()
           (1 to iter).foreach { _ =>
-            f(a, RandomStringUtils.randomAlphanumeric(size))
+            f(a, new String(toAsciString(RandomStringUtils.randomAlphanumeric(size)), US_ASCII))
           }
           val elapsed = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - start)
           println(s"${q.fileAbsolutePath()} time: $elapsed")
@@ -106,15 +104,14 @@ object SizeTest {
       val start = System.currentTimeMillis()
       //          val iter = 10 * 1000 * 1000
       (1 to iter).foreach { _ =>
-        a.writeText(RandomStringUtils.randomAlphanumeric(size))
+        a.writeText(new String(toAsciString(RandomStringUtils.randomAlphanumeric(size)), US_ASCII))
       }
       val elapsed = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - start)
       println(s"${q.fileAbsolutePath()} time: $elapsed")
     }
   }
 
-  @inline
-  private def toAsciString(s: String) = {
-    s.getBytes(StandardCharsets.US_ASCII)
+  @inline private def toAsciString(s: String) = {
+    s.getBytes(US_ASCII)
   }
 }
