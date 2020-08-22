@@ -37,7 +37,6 @@ class MyServiceFactory(queue: SingleChronicleQueue, server: => Closable) extends
     new MyService(server, conn, appender, tailer, countingTailer, pool) // todo: check if it is possible to make service local and reassign connection
   }
 
-
   override def close(deadline: Time): Future[Unit] = Future.Done
 }
 
@@ -60,7 +59,6 @@ object PutAllTogether {
     //      .storeFileListener(listener)
     .build()
 
-
   val producer = queue.acquireAppender()
   val consumer =
     queue
@@ -72,7 +70,6 @@ object PutAllTogether {
   val countingTailer = new CountingTailer(queue, consumer)
 
   private[this] val log = Logger.get()
-
 
   def main(args: Array[String]): Unit = {
 
@@ -86,10 +83,11 @@ object PutAllTogether {
     val serv = apply(host, port).proceed(queue)
 
     sys.runtime.addShutdownHook(OnShuttingDown)
-    object OnShuttingDown extends Thread(() => {
-      val serverClose = serv.close(Duration.fromSeconds(4))
-      Await.result(serverClose)
-    })
+    object OnShuttingDown
+      extends Thread(() => {
+        val serverClose = serv.close(Duration.fromSeconds(4))
+        Await.result(serverClose)
+      })
   }
 
   def apply(host: String, port: Int) = {
@@ -98,21 +96,29 @@ object PutAllTogether {
       .stack(Server())
       .reportTo(NullStatsReceiver)
       .tracer(NullTracer)
-      .configured((Transport.Options(noDelay = true, reuseAddr = true, reusePort = true), Transport.Options.param)) // todo: reusePort – enables or disables SO_REUSEPORT option on a transport socket (Linux 3.9+ only).
+      .configured(
+        (Transport.Options(noDelay = true, reuseAddr = true, reusePort = true),
+          Transport.Options.param)) // todo: reusePort – enables or disables SO_REUSEPORT option on a transport socket (Linux 3.9+ only).
       .bindTo(new InetSocketAddress(host, port))
   }
 
-  implicit class ServOps(b: ServerBuilder[ByteBuf, ByteBuf, ServerConfig.Yes, ServerConfig.Yes, ServerConfig.Yes]) {
+  implicit class ServOps(
+      b: ServerBuilder[ByteBuf,
+        ByteBuf,
+        ServerConfig.Yes,
+        ServerConfig.Yes,
+        ServerConfig.Yes]) {
     def proceed(queue: SingleChronicleQueue): ListeningServer = {
       var serv: ListeningServer = null
       val underlyingFactory = new MyServiceFactory(queue, serv)
       serv = b.build(underlyingFactory)
 
       sys.runtime.addShutdownHook(OnShuttingDown)
-      object OnShuttingDown extends Thread(() => {
-        val serverClose = serv.close(Duration.fromSeconds(4))
-        Await.result(serverClose)
-      })
+      object OnShuttingDown
+        extends Thread(() => {
+          val serverClose = serv.close(Duration.fromSeconds(4))
+          Await.result(serverClose)
+        })
       serv
     }
   }
@@ -146,7 +152,8 @@ object C {
 
   val defaultTailer = "default"
 
-  private def getBuf(bufName: String) = withInitial(() => wrappedBuffer(bufName.getBytes(US_ASCII)))
+  private def getBuf(bufName: String) =
+    withInitial(() => wrappedBuffer(bufName.getBytes(US_ASCII)))
 
   private val putBuf = getBuf(Put)
   private val _getBuf = getBuf(Get)
@@ -157,17 +164,24 @@ object C {
   private val errorBuf = getBuf(Error)
 
   def SHUTDOWN_BUF: ByteBuf = shutdownBuf.get()
-//    .resetReaderIndex() // todo: def
+
+  //    .resetReaderIndex() // todo: def
   def QUIT_BUF: ByteBuf = quitBuf.get()
-//    .resetReaderIndex() // todo: def
-  def INVALID_REQUEST_BUF: ByteBuf = invalidRequestBuf.get().retainedDuplicate() // todo: retainedDuplicate
-//    .resetWriterIndex().resetReaderIndex() // todo: def
-  def OK_BUF: ByteBuf = okBUf.get().retainedDuplicate() // todo: retainedDuplicate
-//    .resetWriterIndex().resetReaderIndex() // todo: def
-  def ErrorBuf: ByteBuf = errorBuf.get().retainedDuplicate() // todo: retainedDuplicate
-//    .resetWriterIndex().resetReaderIndex() // todo: def
+
+  //    .resetReaderIndex() // todo: def
+  def INVALID_REQUEST_BUF: ByteBuf =
+    invalidRequestBuf.get().retainedDuplicate() // todo: retainedDuplicate
+  //    .resetWriterIndex().resetReaderIndex() // todo: def
+  def OK_BUF: ByteBuf =
+    okBUf.get().retainedDuplicate() // todo: retainedDuplicate
+  //    .resetWriterIndex().resetReaderIndex() // todo: def
+  def ErrorBuf: ByteBuf =
+    errorBuf.get().retainedDuplicate() // todo: retainedDuplicate
+  //    .resetWriterIndex().resetReaderIndex() // todo: def
   def PUT_BUF: ByteBuf = putBuf.get()
-//    .resetReaderIndex()
+
+  //    .resetReaderIndex()
   def GET_BUF: ByteBuf = _getBuf.get()
-//    .resetReaderIndex()
+
+  //    .resetReaderIndex()
 }
