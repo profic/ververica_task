@@ -7,12 +7,11 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import net.openhft.chronicle.bytes.BytesOut
 import net.openhft.chronicle.queue.{ExcerptAppender, ExcerptTailer}
 import org.apache.commons.lang3.math.NumberUtils
 import task.C._
 import task.MyService._
-import task.{C, CountingTailer, MyService}
+import task.{CountingTailer, MyService, Quit, Unknown}
 
 /**
  * Handler implementation for the echo server.
@@ -26,28 +25,45 @@ class NettyServerHandlerScala(
     private val server: Closeable
 ) extends SimpleChannelInboundHandler[ByteBuf] {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf): Unit = /* synchronized */ { // todo: /* synchronized */
+  require(connection != null)
+  require(producer != null)
+  require(consumer != null)
+  require(countingTailer != null)
+  require(server != null)
+
+  private val writeLock = new Object()
+  private val readLock = new Object()
+
+//  override def channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf): Unit = {
 //    val buf = msg.asInstanceOf[ByteBuf]
-//    ctx.writeAndFlush(apply(buf))
-//    "Hello".getBytes.foreach { b =>
-//      ctx.write(b)
+//    val res = if (buf.isQuit) quit
+//    else if (buf.isShutdown) shutdown
+//    else invalidOrElse(buf.hasDataToRead) {
+//      if (buf.isPut) write(buf)
+//      else invalidOrElse(buf.isGet)(read(buf))
 //    }
+//    ctx.write(res)
+//  }
 
-
-    ctx.write("hello")
-    ctx.flush()
-  }
-
-  override def channelReadComplete(ctx: ChannelHandlerContext): Unit = ctx.flush
-
-  def apply(buf: ByteBuf): ByteBuf = {
-    if (buf.isQuit) quit
+  override def channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf): Unit = {
+    val buf = msg.asInstanceOf[ByteBuf]
+//    buf.toReqType match { // todo?
+//      case task.Shutdown => shutdown
+//      case Quit => quit
+//      case task.Get =>
+//      case task.Put =>
+//      case Unknown =>
+//    }
+    val res = if (buf.isQuit) quit
     else if (buf.isShutdown) shutdown
-    else invalidOrElse(buf.readableBytes > INDEX_FOUR) {
+    else invalidOrElse(buf.hasDataToRead) {
       if (buf.isPut) write(buf)
       else invalidOrElse(buf.isGet)(read(buf))
     }
+    ctx.write(res)
   }
+
+  override def channelReadComplete(ctx: ChannelHandlerContext): Unit = ctx.flush()
 
   private def shutdown = ok {
     MyService.log.debug("shutting down server")
@@ -61,19 +77,20 @@ class NettyServerHandlerScala(
 
   private def write(buf: ByteBuf) = invalidOrElse(isValid(buf)) {
     ok {
-      //      println("START WRITING")
-      val res = buf.resetToFour
-      //      producer.wire().write(res.toString(INDEX_FOUR, res.readableBytes(), US_ASCII))
-      producer.writeText(res.toString(INDEX_FOUR, res.readableBytes(), US_ASCII))
+      writeLock.synchronized { // todo: synchronized
+        val dc = producer.writingDocument
+        try {
+          val bytes = dc.wire.bytes
+          (0 until buf.resetToFour.readableBytes).foreach(_ => bytes.writeByte(buf.readByte))
+        }
+        catch {
+          case t: Throwable =>
+            dc.rollbackOnClose()
+            throw t
+        } finally dc.close()
 
-      //      producer.writeBytes { (bytes: BytesOut[_]) => // todo: omit closure?
-      //        //        (0 until buf.resetToFour.readableBytes).foreach(_ => bytes.writeByte(buf.readByte)) // todo
-      //        (0 until buf.resetToFour.readableBytes).foreach { _ =>
-      //          val byt = buf.readByte
-      //          //          print(byt.toChar)
-      //          bytes.writeByte(byt)
-      //        }
-      //      }
+        countingTailer.increment()
+      }
     }
   }
 
@@ -82,154 +99,50 @@ class NettyServerHandlerScala(
     arr.contains(buf.readByte.toChar)
   }
 
-  private def read(buf: ByteBuf) = /* synchronized */ { // todo: /* synchronized */
+  private def read(buf: ByteBuf) = /* synchronized */ { // todo: synchronized
     val str = buf.resetToFour.toString(INDEX_FOUR, buf.readableBytes, US_ASCII)
     invalidOrElse(NumberUtils.isDigits(str)) {
       val n = str.toInt
 
       invalidOrElse(n > 0) {
-        synchronized {
-          val end = countingTailer.end
-          val consumerIndex = consumer.index
-          if (consumerIndex == 0) {
-            if (countingTailer.entryCount >= n) readIt(n)
-            else ErrorBuf
-          }
-          else if (end != 0 && end - consumerIndex >= n) readIt(n)
+        readLock.synchronized { // todo: synchronized
+          if (countingTailer.available >= n) readIt(n)
           else ErrorBuf
         }
       }
     }
   }
 
-
-  //  private def readIt(n: Int) = {
-  //    val sb = new StringBuilder
-  //    (1 to n).foreach { _ =>
-  //      {
-  //        val doc = consumer.readingDocument
-  //        try {
-  //          if (doc.isPresent) {
-  //            val text = doc.wire().asText()
-  //            println(s"doc.wire().asText() = $text")
-  //            doc.close()
-  //            sb.append(text)
-  //          } else {
-  //            throw new IllegalStateException("") // todo
-  //          }
-  //        } catch {
-  //          case _: Exception => doc.rollbackOnClose()
-  //        }
-  //      }
-  //
-  //      {
-  //        val doc = consumer.readingDocument
-  //        try {
-  //          if (doc.isPresent) {
-  //            val text = doc.wire().read().`object`()
-  //            println(s"doc.wire().read().`object`() = ${text}")
-  //            doc.close()
-  //            sb.append(text)
-  //          } else {
-  //            throw new IllegalStateException("") // todo
-  //          }
-  //        } catch {
-  //          case _: Exception => doc.rollbackOnClose()
-  //        }
-  //      }
-  //
-  //      {
-  //        val doc = consumer.readingDocument
-  //        try {
-  //          if (doc.isPresent) {
-  //            val text = doc.wire().asText()
-  //            doc.close()
-  //            sb.append(text)
-  //          } else {
-  //            throw new IllegalStateException("") // todo
-  //          }
-  //        } catch {
-  //          case _: Exception => doc.rollbackOnClose()
-  //        }
-  //      }
-  //
-  //      {
-  //        val doc = consumer.readingDocument
-  //        try {
-  //          if (doc.isPresent) {
-  //            val text = doc.wire().asText()
-  //            doc.close()
-  //            sb.append(text)
-  //          } else {
-  //            throw new IllegalStateException("") // todo
-  //          }
-  //        } catch {
-  //          case _: Exception => doc.rollbackOnClose()
-  //        }
-  //      }
-  //
-  //      {
-  //        val doc = consumer.readingDocument
-  //        try {
-  //          if (doc.isPresent) {
-  //            val text = doc.wire().asText()
-  //            doc.close()
-  //            sb.append(text)
-  //          } else {
-  //            throw new IllegalStateException("") // todo
-  //          }
-  //        } catch {
-  //          case _: Exception => doc.rollbackOnClose()
-  //        }
-  //      }
-  //    }
-  //
-  //    sb.append('\r').append('\n')
-  //
-  //    //    Unpooled.copiedBuffer(sb.toString, US_ASCII)
-  //    val buf = b.retainedDuplicate() // todo: ???
-  //    buf.writeCharSequence(sb, US_ASCII)
-  //    buf
-  //  }
-
-  def readIt(n: Int) = {
-    val sb = new java.lang.StringBuilder
-    val tmp = new java.lang.StringBuilder
+  private def readIt(n: Int) = {
+    val buf = b
     (1 to n).foreach { _ =>
       val doc = consumer.readingDocument
       try {
         if (doc.isPresent) {
-          //          val text = doc.wire().asText()
-          //          val text = new String(doc.wire.getValueIn.bytes(), US_ASCII)
-          doc.wire.getValueIn.text(tmp)
-          sb.append(tmp).append('\n')
+          val by = doc.wire().bytes()
+          (0 until by.length()).foreach(_ => buf.writeByte(by.readByte()))
+          buf.writeByte('\n')
+        } else {
+          throw new IllegalStateException("") // todo
         }
-        //        else {
-        //          throw new IllegalStateException("") // todo
-        //        }
       } catch {
         case e: Exception =>
           e.printStackTrace()
           doc.rollbackOnClose()
+          throw e
       } finally {
         doc.close()
       }
+
+      countingTailer.decrement()
     }
 
-    sb.append('\r').append('\n')
-
-    //    Unpooled.copiedBuffer(sb.toString, US_ASCII)
-    val buf = b.retainedDuplicate() // todo: ???
-    buf.writeCharSequence(sb, US_ASCII)
-    buf
+    buf.writeByte('\r').writeByte('\n')
   }
 
   private def b = Unpooled.buffer() // todo: def???
 
-  @inline private def ok(f: => Unit) = {
-    f
-    OK_BUF
-  }
+  @inline private def ok(ignore: Any) = OK_BUF
 
   @inline private def invalidOrElse(b: Boolean)(f: => ByteBuf) = if (b) f else INVALID_REQUEST_BUF
 }

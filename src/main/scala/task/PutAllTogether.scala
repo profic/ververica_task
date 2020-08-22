@@ -1,6 +1,7 @@
 package task
 
 import java.io.File
+import java.lang.ThreadLocal.withInitial
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets.US_ASCII
 
@@ -11,6 +12,7 @@ import com.twitter.finagle.transport.Transport
 import com.twitter.finagle.{ClientConnection, ListeningServer, ServiceFactory}
 import com.twitter.logging.Logger
 import com.twitter.util._
+import io.netty.buffer.Unpooled.wrappedBuffer
 import io.netty.buffer.{ByteBuf, Unpooled}
 import net.openhft.chronicle.bytes.pool.BytesPool
 import net.openhft.chronicle.queue.impl.StoreFileListener
@@ -24,7 +26,7 @@ class MyServiceFactory(queue: SingleChronicleQueue, server: => Closable) extends
 
   private val appender = queue.acquireAppender()
   private val tailer = queue.createTailer(defaultTailer)
-  private val countingTailer = CountingTailer(queue)
+  private val countingTailer = new CountingTailer(queue, tailer)
   private val pool = new BytesPool()
 
   def apply(conn: ClientConnection): Future[MyService] = create(conn)
@@ -67,7 +69,7 @@ object PutAllTogether {
       //      .build()
       .createTailer()
 
-  val countingTailer = CountingTailer(queue)
+  val countingTailer = new CountingTailer(queue, consumer)
 
   private[this] val log = Logger.get()
 
@@ -125,7 +127,6 @@ object PutAllTogether {
 
 object C {
 
-
   val arr = Array(' ') ++ ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z') // todo: simplify
 
   //  val SHUTDOWN = "SHUTDOWN\n"
@@ -141,19 +142,11 @@ object C {
 
   val Put = "PUT "
   val Get = "GET "
-  val INDEX_FOUR = 4
+  val INDEX_FOUR = 4 // todo: name
 
   val defaultTailer = "default"
 
-//  private def putBuf = Unpooled.copiedBuffer(Put, US_ASCII)
-//  private def getBuf = Unpooled.copiedBuffer(Get, US_ASCII)
-//  private def shutdownBuf = Unpooled.copiedBuffer(SHUTDOWN, US_ASCII)
-//  private def quitBuf = Unpooled.copiedBuffer(QUIT, US_ASCII)
-//  private def invalidRequestBuf = copiedBuffer(invalidRequest, US_ASCII)
-//  private def okBUf = Unpooled.copiedBuffer(ok, US_ASCII)
-//  private def errorBuf = Unpooled.copiedBuffer(Error, US_ASCII)
-
-  private def getBuf(put: String): ByteBuf = Unpooled.wrappedBuffer(put.getBytes(US_ASCII))
+  private def getBuf(bufName: String) = withInitial(() => wrappedBuffer(bufName.getBytes(US_ASCII)))
 
   private val putBuf = getBuf(Put)
   private val _getBuf = getBuf(Get)
@@ -163,18 +156,18 @@ object C {
   private val okBUf = getBuf(ok)
   private val errorBuf = getBuf(Error)
 
-  def SHUTDOWN_BUF: ByteBuf = shutdownBuf
+  def SHUTDOWN_BUF: ByteBuf = shutdownBuf.get()
 //    .resetReaderIndex() // todo: def
-  def QUIT_BUF: ByteBuf = quitBuf
+  def QUIT_BUF: ByteBuf = quitBuf.get()
 //    .resetReaderIndex() // todo: def
-  def INVALID_REQUEST_BUF: ByteBuf = invalidRequestBuf.retainedDuplicate()
+  def INVALID_REQUEST_BUF: ByteBuf = invalidRequestBuf.get().retainedDuplicate() // todo: retainedDuplicate
 //    .resetWriterIndex().resetReaderIndex() // todo: def
-  def OK_BUF: ByteBuf = okBUf.retainedDuplicate()
+  def OK_BUF: ByteBuf = okBUf.get().retainedDuplicate() // todo: retainedDuplicate
 //    .resetWriterIndex().resetReaderIndex() // todo: def
-  def ErrorBuf: ByteBuf = errorBuf.retainedDuplicate()
+  def ErrorBuf: ByteBuf = errorBuf.get().retainedDuplicate() // todo: retainedDuplicate
 //    .resetWriterIndex().resetReaderIndex() // todo: def
-  def PUT_BUF: ByteBuf = putBuf
+  def PUT_BUF: ByteBuf = putBuf.get()
 //    .resetReaderIndex()
-  def GET_BUF: ByteBuf = _getBuf
+  def GET_BUF: ByteBuf = _getBuf.get()
 //    .resetReaderIndex()
 }

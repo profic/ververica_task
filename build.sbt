@@ -11,8 +11,11 @@ val `finagle-version` = "20.7.0"
 val AkkaVersion = "2.6.8"
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % AkkaVersion
 
+libraryDependencies += "com.google.guava" % "guava" % "29.0-jre"
+
 libraryDependencies ++= Seq(
-  "net.openhft" % "chronicle-queue" % "5.19.76",
+//  "net.openhft" % "chronicle-queue" % "5.19.76",
+  "net.openhft" % "chronicle-queue" % "5.20.3",
   "org.apache.commons" % "commons-lang3" % "3.11",
   "com.twitter" %% "finagle-core" % `finagle-version`,
 

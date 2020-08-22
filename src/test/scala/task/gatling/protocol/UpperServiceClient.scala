@@ -31,8 +31,8 @@ object UpperServiceClient {
 
 //    sys.exit(1)
 
-    List(c1,
-//      c2, c3, c4
+    List(c1
+      , c2, c3, c4
     ).map { c =>
       Future {
         var i = 0

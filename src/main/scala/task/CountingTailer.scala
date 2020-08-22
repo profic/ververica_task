@@ -1,17 +1,29 @@
 package task
 
+import java.util.concurrent.atomic.AtomicLong
+
+import net.openhft.chronicle.queue.ExcerptTailer
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
 
-case class CountingTailer(private val queue: SingleChronicleQueue) {
+class CountingTailer(queue: SingleChronicleQueue, consumer: ExcerptTailer) {
 
-  private final val tailer = queue.createTailer
+  def decrement(): Unit = count.decrementAndGet()
 
-  def entryCount: Long = /* synchronized */ { // todo: remove? /* synchronized */?
-    val lastIndex = end
-    if (lastIndex == 0) 0
-    else queue.countExcerpts(queue.firstIndex, lastIndex)
+  def increment(): Unit = count.incrementAndGet()
+
+  private final val count = {
+    val consumerIndex = consumer.index
+    val lastIndex = consumer.toEnd.index
+
+    val count = (consumerIndex, lastIndex) match {
+      case (0, 0) => 0
+      case (0, _) => queue.countExcerpts(queue.firstIndex, lastIndex)
+      case _ => lastIndex - consumerIndex
+    }
+
+    new AtomicLong(count)
   }
 
-  def end: Long = /* synchronized */(tailer.toEnd.index) // todo: /* synchronized */
+  def available: Long = count.get()
 
 }

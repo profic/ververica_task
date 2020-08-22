@@ -69,9 +69,6 @@ object ConcurrentIssuesChronicleTest {
 //      read
 //    }
 
-    lock.synchronized {
-
-    }
   }
 }
 

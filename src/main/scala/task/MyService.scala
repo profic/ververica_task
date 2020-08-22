@@ -26,12 +26,30 @@ object MyService {
 
     def isGet: Boolean = ByteBufUtil.equals(buf.resetReaderIndex, 0, GET_BUF, 0, INDEX_FOUR)
 
-    def resetToFour: ByteBuf = buf.readerIndex(INDEX_FOUR)
+    def resetToFour: ByteBuf = buf.readerIndex(INDEX_FOUR) // todo: name
+
+    def hasDataToRead: Boolean = buf.readableBytes > INDEX_FOUR
+
+    def toReqType: ReqType =
+      if (isQuit) Quit
+      else if (isShutdown) Shutdown
+      else if (isPut) Put
+      else if (isGet) Get
+      else Unknown
 
     private def compareBuffers(compareWith: ByteBuf) = ByteBufUtil.equals(buf.resetReaderIndex, compareWith)
   }
 
 }
+
+// todo?
+sealed trait ReqType
+case object Shutdown extends ReqType
+case object Quit extends ReqType
+case object Get extends ReqType
+case object Put extends ReqType
+case object Unknown extends ReqType
+// todo?
 
 import task.MyService._
 

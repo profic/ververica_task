@@ -139,7 +139,7 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     shiftToEnd()
   }
 
-  private def shiftToEnd(): Unit = /* synchronized */ { // todo: /* synchronized */
+  private def shiftToEnd(): Unit = /* synchronized */ { // todo: synchronized
     consumer.toEnd
   }
 
