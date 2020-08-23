@@ -12,7 +12,7 @@ import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
 import net.openhft.chronicle.queue.{ExcerptTailer, RollCycles}
 import net.openhft.chronicle.wire.{ValueIn, ValueOut, Wire}
 import org.apache.commons.lang3.RandomStringUtils
-import task.C.defaultTailer
+import task.Constants.defaultTailer
 
 object VariousReadWrite {
 
@@ -88,8 +88,8 @@ object VariousReadWrite {
         }
         doc.close()
       }.recover {
-          case e => e.printStackTrace()
-        }
+        case e => e.printStackTrace()
+      }
     }
 
     def pooled(s: String, f: Wire => Bytes[_] => Any) = {
@@ -102,7 +102,6 @@ object VariousReadWrite {
       value
     }
 
-
     qwe(w => {
       val sequence = w.asText()
       s"w.asText = $sequence"
@@ -112,27 +111,27 @@ object VariousReadWrite {
       s"w.readText = $str"
     }) // StringBuilder sb = Wires.acquireStringBuilder(); dc.wire().getValueIn().text(sb);
     qwe(w => {
-      val read = w.read
+      val read  = w.read
       val value = read.`object`()
       s"w.read.`object` = $value"
     }) // readField(acquireStringBuilder(), null, ANY_CODE_MATCH.code());
     qwe(w => {
       val read = w.read
-      val str = read.text()
+      val str  = read.text()
       s"w.read.text = $str"
     })
     qwe(w => {
       val read = w.read
-      val str = read.readString()
+      val str  = read.readString()
       s"w.read.readString = $str"
     })
     qwe(w => {
-      val read = w.read
+      val read  = w.read
       val bytes = read.bytes()
       s"w.read.bytes new String = ${new String(bytes)}"
     })
     qwe(w => {
-      val read = w.read
+      val read  = w.read
       val value = read.bytesStore()
       s"w.read.bytesStore = $value"
     })
@@ -161,17 +160,17 @@ object VariousReadWrite {
       }
     })
     qwe(w => {
-      val in = w.getValueIn
+      val in  = w.getValueIn
       val str = in.text()
       s"w.getValueIn.text = $str"
     })
     qwe(w => {
-      val in = w.getValueIn
+      val in    = w.getValueIn
       val value = in.`object`()
       s"w.getValueIn.object = $value"
     })
     qwe(w => {
-      val in = w.getValueIn
+      val in  = w.getValueIn
       val str = in.readString()
       s"w.getValueIn.readString = $str"
     })

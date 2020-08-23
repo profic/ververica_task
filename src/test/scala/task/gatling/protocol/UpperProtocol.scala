@@ -27,14 +27,9 @@ object UpperProtocol {
 
 case class UpperComponents(upperProtocol: UpperProtocol) extends ProtocolComponents {
   override def onStart: Session => Session = ProtocolComponents.NoopOnStart
-
   override def onExit: Session => Unit = ProtocolComponents.NoopOnExit
 }
 
 case class UpperProtocolBuilder(address: String, port: Int) {
   def build(): UpperProtocol = UpperProtocol(address, port)
-}
-
-object UpperProtocolBuilder {
-  def endpoint(address: String, port: Int): UpperProtocolBuilder = UpperProtocolBuilder(address, port)
 }

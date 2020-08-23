@@ -10,7 +10,6 @@ object GenerateData {
     generateText()
   }
 
-
   def generateBytes(): Unit = {
     val path = "d:\\ververica_task_prepared_data"
 
@@ -22,7 +21,7 @@ object GenerateData {
       .build()
 
     val appender = queue.acquireAppender()
-    var i = 1
+    var i        = 1
     while (true) {
       appender.writeBytes((bytes: BytesOut[_]) => {
         val word = NumberToWords(i)
@@ -44,7 +43,7 @@ object GenerateData {
       .build()
 
     val appender = queue.acquireAppender()
-    var i = 1
+    var i        = 1
     while (true) {
       val word = NumberToWords(i)
       appender.writeText(s"$i $word")

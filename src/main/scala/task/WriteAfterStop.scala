@@ -12,7 +12,6 @@ object WriteAfterStop {
       .rollCycle(RollCycles.LARGE_HOURLY) // todo: рассчитать RPS и описать
       .build
 
-
     val a = q.acquireAppender
 
     def writeIt(value: String): Unit = {

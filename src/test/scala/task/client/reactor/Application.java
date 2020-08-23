@@ -12,23 +12,23 @@ public class Application {
     public static void main(String[] args) {
         Connection connection =
                 TcpClient.create()
-                        .host("example.com")
-                        .port(80)
-                        .handle((inbound, outbound) -> outbound.sendString(Mono.just("hello")))
-                        .connectNow();
+                         .host("example.com")
+                         .port(80)
+                         .handle((inbound, outbound) -> outbound.sendString(Mono.just("hello")))
+                         .connectNow();
 
         connection.onDispose().block();
 
         {
             TcpClient.create()
-                    .host("localhost")
-                    .port(10042)
-                    .doOnConnected(conn -> conn
-                            .addHandler(new ReadTimeoutHandler(10, TimeUnit.SECONDS))
-                    )
-                    .connectNow()
-                    .onDispose()
-                    .block();
+                     .host("localhost")
+                     .port(10042)
+                     .doOnConnected(conn -> conn
+                             .addHandler(new ReadTimeoutHandler(10, TimeUnit.SECONDS))
+                     )
+                     .connectNow()
+                     .onDispose()
+                     .block();
         }
 
     }

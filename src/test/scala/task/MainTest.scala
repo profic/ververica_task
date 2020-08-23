@@ -1,5 +1,8 @@
 package task
 
+import java.io.File
+import java.nio.file.Files
+
 import scala.language.implicitConversions
 
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
@@ -13,30 +16,23 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
-import task.C._
-import task.client.finagle.{Echo, TopLevelClient}
+import task.Constants._
+import task.client.finagle.{Echo, FinagleBaseTopLevelClient}
 import task.netty.NettyServerScala
 import Tests._
 
 object Tests {
-  val invalidRequestDef = invalidRequest.replace("\r\n", "")
-  val error = Error.replace("\r\n", "")
+  val invalidRequestDef: String = invalidReq.replace("\r\n", "")
+  val error            : String = Error.replace("\r\n", "")
+  val Ok               : String = ok.replace("\r\n", "")
 }
 
 class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfter {
 
-  before {
-    recreateClients()
-    shiftToEnd()
-  }
-  after(closeClient())
+  before(shiftToEnd())
 
-  private var consumer: ExcerptTailer = _
-  private var c: TopLevelClient = _
-
-  private val port = 10042
-
-  private def client = c // todo: need?
+  private val port   = 10042
+  private val client = new FinagleBaseTopLevelClient(Echo.newClient(s"localhost:$port").toService)
 
   "asdasd0" should "TABLE" in {
     val blabla = randomAlphabetic(5)
@@ -52,7 +48,6 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
 
     testTable(t)
   }
-
 
   "very long word" should "work" in {
     val longSingleWord = randomAlphanumeric(100000)
@@ -87,7 +82,6 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     put(blabla).get(1) shouldBe s"$blabla\n"
   }
 
-
   "asdasd2" should "return read value after write (twice)" in {
     val blabla = randomAlphabetic(5)
 
@@ -104,9 +98,9 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
   }
 
   "asdasd4" should "return values in the same order on multiple reads" in {
-    put1(10)
+    (1 to 10).map(_.toString).foreach(client.put)
 
-    def test(i1: Int, i2: Int) = get(2) shouldBe concat3(i1, i2)
+    def test(i1: Int, i2: Int) = get(2) shouldBe (i1 to i2).map(s => s"$s\n").mkString
 
     test(1, 2)
     test(3, 4)
@@ -133,79 +127,45 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
 
   private def testTable(t: TableFor2[() => String, String]): Unit = t.forEvery { (func, expected) =>
     func() shouldBe expected
-
-    closeClient()
-    recreateClients()
     shiftToEnd()
   }
 
   private def shiftToEnd(): Unit = /* synchronized */ { // todo: synchronized
-    consumer.toEnd
+    //    consumer.toEnd
   }
 
   private def concat(s: String, n: Int = 1) = (1 to n).map(i => s"$i$s\n").mkString
 
-  private def concat3(from: Int, toInclusive: Int) = (from to toInclusive).map(s => s"$s\n").mkString
-
   private def quit() = client.quit()
-
   private def get(n: Int) = client.get(n)
-
-  def getWithDelimiter(n: Int): String = get(n) + "\n"
-
-  private def putWithSeqNumber(s: String, n: Int = 1) = (1 to n).map(_ + s).map(client.put).last
-
   private def put(s: String, n: Int = 1) = (1 to n).map(_ => client.put(s)).last
+  private def putWithSeqNumber(s: String, n: Int = 1) = (1 to n).map(_ + s).map(client.put).last
 
   private def putAndCheckOk(s: String, n: Int = 1) = (1 to n).map { _ =>
     val res = client.put(s)
-    res shouldBe ok.replace("\r\n", "")
+    res shouldBe Ok
     res
   }.last
 
-  private def put1(n: Int) = (1 to n).map(_.toString).foreach(client.put)
-
   implicit class SOps(ignore: String) {
-    def get(n: Int): String = client.get(n)
-
-    def getWithDelimiter(n: Int): String = get(n) + "\n"
-
-    def putWithSeqNumber(s: String, n: Int = 1): String = (1 to n).map(i => client.put(s"$i$s")).last
-
-    def quit(): String = client.quit()
-
-    def putAndCheckOk(s: String, n: Int = 1): String = (1 to n).map { _ =>
-      val res = client.put(s)
-      res shouldBe ok.replace("\r\n", "")
-      res
-    }.last
+    def get(n: Int): String = MainTest.this.get(n)
+    def putWithSeqNumber(s: String, n: Int = 1): String = MainTest.this.putWithSeqNumber(s, n)
+    def quit(): String = MainTest.this.quit()
+    def putAndCheckOk(s: String, n: Int = 1): String = MainTest.this.putAndCheckOk(s, n)
   }
 
   private implicit def futureToFunc(f: => String): () => String = () => f
 
-  private def recreateClients(): Unit = c = {
-    new TopLevelClient(Echo.newClient(s"localhost:$port").toService)
-  }
-
-  private def closeClient(): Unit = c.close()
-
   override protected def beforeAll(): Unit = {
-    val path = "d:\\ververica_task\\" + randomAlphabetic(3)
-    val queue: SingleChronicleQueue = ChronicleQueue
+    val path = Files.createTempDirectory("tmp").toFile
+    path.deleteOnExit()
+
+    val queue = ChronicleQueue
       .singleBuilder(path)
       .maxTailers(1)
       .rollCycle(RollCycles.LARGE_HOURLY)
-      //      .storeFileListener(listener)
       .build()
-
-    consumer = queue.createTailer(defaultTailer)
-
-    val q = spy(queue)
-    doReturn(consumer, consumer).when(q).createTailer(ArgumentMatchers.eq(defaultTailer))
-
-    NettyServerScala.newServer(port, q)
-
-//    PutAllTogether("localhost", port).proceed(q)
+    NettyServerScala.newServer(port, queue)
   }
 
   override protected def afterAll(): Unit = {

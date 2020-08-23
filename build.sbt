@@ -4,22 +4,22 @@ version := "0.1"
 
 scalaVersion := "2.12.11"
 
-val `akka-version` = "2.6.8"
+val `akka-version`    = "2.6.8"
 val `gatling-version` = "3.3.1"
 val `finagle-version` = "20.7.0"
 
-val AkkaVersion = "2.6.8"
-libraryDependencies += "com.typesafe.akka" %% "akka-actor" % AkkaVersion
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.6.8"
+libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
 
 libraryDependencies += "com.google.guava" % "guava" % "29.0-jre"
 
 libraryDependencies ++= Seq(
-//  "net.openhft" % "chronicle-queue" % "5.19.76",
+  //  "net.openhft" % "chronicle-queue" % "5.19.76",
   "net.openhft" % "chronicle-queue" % "5.20.3",
   "org.apache.commons" % "commons-lang3" % "3.11",
   "com.twitter" %% "finagle-core" % `finagle-version`,
 
-//  "com.twitter" %% "finagle-http" % "20.7.0", // todo
+  //  "com.twitter" %% "finagle-http" % "20.7.0", // todo
 
   "com.twitter" %% "finagle-netty4" % `finagle-version`,
   "commons-io" % "commons-io" % "2.7",

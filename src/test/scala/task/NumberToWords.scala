@@ -52,29 +52,29 @@ object NumberToWords {
 
   private def convertHundreds(number: Int) = {
     var hundredResult = singleDigit(number / 100) + " hundred"
-    val remaining = number % 100
+    val remaining     = number % 100
     if (remaining != 0) hundredResult += " " + apply(remaining)
     hundredResult
   }
 
   private def convertThousands(number: Int) = {
-    val thousand = number / 1000
+    val thousand       = number / 1000
     val thousandResult = apply(thousand) + " thousand"
-    val remaining = number % 1000
+    val remaining      = number % 1000
     qweqwe(thousandResult, remaining)
   }
 
   private def convertMilions(number: Int) = {
-    val million = number / 1000000
+    val million       = number / 1000000
     val millionResult = apply(million) + " million"
-    val remaining = number % 1000000
+    val remaining     = number % 1000000
     qweqwe(millionResult, remaining)
   }
 
   private def convertBilions(number: Int) = {
-    val billion = number / 1000000000
+    val billion       = number / 1000000000
     val billionResult = apply(billion) + " billion"
-    val remaining = number % 1000000000
+    val remaining     = number % 1000000000
     qweqwe(billionResult, remaining)
   }
 

@@ -14,7 +14,7 @@ object ReadWrite {
 
     val a = q.acquireAppender()
 
-    var i = 1000000000L
+    var i      = 1000000000L
     val writer = new Thread(() => {
       while (true) {
         val wd = a.writingDocument()
@@ -32,12 +32,12 @@ object ReadWrite {
 
     val t = q.createTailer("default123")
 
-    var read = 0
+    var read   = 0
     val reader = new Thread(() => {
       while (true) {
         val doc = t.readingDocument()
         if (doc.isPresent) {
-          val w = doc.wire()
+          val w    = doc.wire()
           val text = w.asText()
           read += 1
           if (read % 100000 == 0) {

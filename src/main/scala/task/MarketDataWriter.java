@@ -21,7 +21,7 @@ import java.util.concurrent.Executors;
 
 public class MarketDataWriter {
     private static long longSequence = 0;
-    private static int intSequence = 0;
+    private static int  intSequence  = 0;
 
     public static void main(String args[]) {
         String path = "D:\\Logs\\ChronicleData\\marketdata";
@@ -29,8 +29,8 @@ public class MarketDataWriter {
     }
 
     private static void writeMarketData(String path) {
-        ChronicleFactory chronicleFactory = new ChronicleFactory();
-        SingleChronicleQueue chronicle = chronicleFactory.createChronicle(path, RollCycles.MINUTELY);
+        ChronicleFactory     chronicleFactory = new ChronicleFactory();
+        SingleChronicleQueue chronicle        = chronicleFactory.createChronicle(path, RollCycles.MINUTELY);
 
         ExcerptAppender appender = chronicle.acquireAppender();
 
@@ -57,18 +57,18 @@ class ChronicleFactory {
         SingleChronicleQueue chronicle = null;
         try {
             chronicle = SingleChronicleQueueBuilder.binary(persistenceDir)
-                    .rollCycle(rollCycles)
-                    .storeFileListener(new StoreFileListener() {
-                        public void onReleased(int i, File file) {
-                            String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-                            System.out.println(currentTime + ": " + Thread.currentThread().getName() + " onReleased called for file: " + file.getAbsolutePath() + " for cycle: " + i);
-                        }
+                                                   .rollCycle(rollCycles)
+                                                   .storeFileListener(new StoreFileListener() {
+                                                       public void onReleased(int i, File file) {
+                                                           String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                                                           System.out.println(currentTime + ": " + Thread.currentThread().getName() + " onReleased called for file: " + file.getAbsolutePath() + " for cycle: " + i);
+                                                       }
 
-                        public void onAcquired(int cycle, File file) {
-                            String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-                            System.out.println(currentTime + ": " + Thread.currentThread().getName() + " onAcquired called for file: " + file.getAbsolutePath() + " for cycle: " + cycle);
-                        }
-                    }).build();
+                                                       public void onAcquired(int cycle, File file) {
+                                                           String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                                                           System.out.println(currentTime + ": " + Thread.currentThread().getName() + " onAcquired called for file: " + file.getAbsolutePath() + " for cycle: " + cycle);
+                                                       }
+                                                   }).build();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -86,8 +86,8 @@ class SimpleMarketDataReader {
     }
 
     public static void readMarketData(String pathForMarketDataFile) {
-        ChronicleFactory chronicleFactory = new ChronicleFactory();
-        SingleChronicleQueue chronicle = chronicleFactory.createChronicle(pathForMarketDataFile, RollCycles.MINUTELY);
+        ChronicleFactory     chronicleFactory = new ChronicleFactory();
+        SingleChronicleQueue chronicle        = chronicleFactory.createChronicle(pathForMarketDataFile, RollCycles.MINUTELY);
 
         //Create another thread to read same file
 //        SimpleMarketDataReaderNewChronicle simpleMarketDataReaderNewChronicle = new SimpleMarketDataReaderNewChronicle();

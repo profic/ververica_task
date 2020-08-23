@@ -24,7 +24,7 @@ object createDirs {
 }
 
 object SizeTest {
-  val iter = 3  * 1000 * 1000
+  val iter = 3 * 1000 * 1000
 
   /*
     string : small/large
@@ -76,8 +76,8 @@ object SizeTest {
       case (method, f) =>
         sizes.foreach { s =>
           val path = s"""${base}${s}_$method"""
-          val q = ChronicleQueue.singleBuilder(path).maxTailers(1).build()
-          val a = q.acquireAppender()
+          val q    = ChronicleQueue.singleBuilder(path).maxTailers(1).build()
+          val a    = q.acquireAppender()
           val size = s match {
             case "small" => 50
             case "large" => 1000
@@ -94,8 +94,8 @@ object SizeTest {
 
     sizes.foreach { s =>
       val path = s"""${base}${s}_a.writeText"""
-      val q = ChronicleQueue.singleBuilder(path).maxTailers(1).build()
-      val a = q.acquireAppender()
+      val q    = ChronicleQueue.singleBuilder(path).maxTailers(1).build()
+      val a    = q.acquireAppender()
       val size = s match {
         case "small" => 50
         case "large" => 1000

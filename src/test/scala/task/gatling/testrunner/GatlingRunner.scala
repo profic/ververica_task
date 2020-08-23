@@ -6,12 +6,13 @@ import io.gatling.core.config.GatlingPropertiesBuilder
 object GatlingRunner {
   def main(args: Array[String]) {
 
-//    task.netty.NettyServerScala.serverForGatling()
-
+    //    task.netty.NettyServerScala.serverForGatling()
     val simClass = classOf[ExampleSimulation].getName
 
-    val props = new GatlingPropertiesBuilder
-    props.simulationClass(simClass)
+    val props = new GatlingPropertiesBuilder()
+      .simulationClass(simClass)
+      .resultsDirectory("D:\\tmp")
+
     Gatling.fromMap(props.build)
   }
 }
