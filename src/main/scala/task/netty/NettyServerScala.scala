@@ -17,10 +17,6 @@ import task.MessageCount
 
 object NettyServerScala {
 
-  def main(args: Array[String]): Unit = {
-    serverForGatling()
-  }
-
   def serverForGatling(): Unit = {
     val queue = queueForGatling
 

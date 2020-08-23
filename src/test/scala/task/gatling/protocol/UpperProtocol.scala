@@ -16,9 +16,6 @@ object UpperProtocol {
       throw new IllegalStateException("Can't provide a default value for UpperProtocol")
     }
 
-    //		override def newComponents(system: ActorSystem, coreComponents: CoreComponents): UpperProtocol => UpperComponents = {
-    //			upperProtocol => UpperComponents(upperProtocol)
-    //		}
     override def newComponents(coreComponents: CoreComponents): UpperProtocol => UpperComponents = {
       upperProtocol => UpperComponents(upperProtocol)
     }

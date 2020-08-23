@@ -6,8 +6,7 @@ import io.gatling.core.config.GatlingPropertiesBuilder
 object GatlingRunner {
   def main(args: Array[String]) {
 
-    //    task.netty.NettyServerScala.serverForGatling()
-    val simClass = classOf[ExampleSimulation].getName
+    val simClass = classOf[TaskSimulation].getName
 
     val props = new GatlingPropertiesBuilder()
       .simulationClass(simClass)

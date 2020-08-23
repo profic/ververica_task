@@ -4,6 +4,7 @@ import net.openhft.chronicle.bytes.BytesOut
 import net.openhft.chronicle.queue.RollCycles
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder
 
+// todo: remove???
 object GenerateData {
 
   def main(args: Array[String]): Unit = {

@@ -9,8 +9,8 @@ import io.netty.channel.socket.SocketChannel
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import net.openhft.chronicle.queue.{ExcerptAppender, ExcerptTailer}
 import org.apache.commons.lang3.math.NumberUtils
-import task.Constants._
-import task.MessageCount
+import task.Constants.AllowedChars
+import task.{Buffers, MessageCount}
 
 object NettyServerHandlerScala {
 
@@ -19,16 +19,16 @@ object NettyServerHandlerScala {
 
   private val log = Logger(getClass)
 
-  val INDEX_FOUR = 4 // todo: name
+  private val payloadStartIndex = 4
 
   implicit class ByteBufOps(val buf: ByteBuf) extends AnyVal {
-    def isShutdown: Boolean = compareBuffers(SHUTDOWN_BUF)
-    def isQuit: Boolean = compareBuffers(QUIT_BUF)
-    def isPut: Boolean = ByteBufUtil.equals(buf, 0, PUT_BUF, 0, INDEX_FOUR) && hasDataToRead
-    def isGet: Boolean = ByteBufUtil.equals(buf, 0, GET_BUF, 0, INDEX_FOUR) && hasDataToRead
+    def isShutdown: Boolean = compareBuffers(Buffers.Shutdown)
+    def isQuit: Boolean = compareBuffers(Buffers.Quit)
+    def isPut: Boolean = ByteBufUtil.equals(buf, 0, Buffers.Put, 0, payloadStartIndex) && hasDataToRead
+    def isGet: Boolean = ByteBufUtil.equals(buf, 0, Buffers.Get, 0, payloadStartIndex) && hasDataToRead
 
-    def resetToFour: ByteBuf = buf.readerIndex(INDEX_FOUR) // todo: name
-    def hasDataToRead: Boolean = buf.readableBytes > INDEX_FOUR
+    def toPayloadIndex: ByteBuf = buf.readerIndex(payloadStartIndex) // todo: name
+    private def hasDataToRead: Boolean = buf.readableBytes > payloadStartIndex
 
     // todo
     def toReqType: ReqType =
@@ -70,7 +70,7 @@ class NettyServerHandlerScala(
         if (buf.isPut) write(buf)
         else if (buf.isShutdown) shutdown
         else if (buf.isQuit) quit
-        else INVALID_REQUEST_BUF
+        else Buffers.InvalidReq
       ctx.writeAndFlush(res)
     }
   }
@@ -85,40 +85,42 @@ class NettyServerHandlerScala(
     connection.close().sync()
   }
 
-  private def write(buf: ByteBuf) = invalidOrElse(isValid(buf)) {
-    ok {
-      writeLock.synchronized { // todo: synchronized
-        val dc = producer.writingDocument
-        try {
-          val bytes = dc.wire.bytes
-          (0 until buf.resetToFour.readableBytes).foreach(_ => bytes.writeByte(buf.readByte))
-        }
-        catch {
-          case t: Throwable =>
-            dc.rollbackOnClose()
-            throw t
-        } finally dc.close()
-
-        countingTailer.increment()
+  private def write(buf: ByteBuf) = if (isValid(buf)) ok {
+    writeLock.synchronized { // todo: synchronized
+      val dc = producer.writingDocument
+      try {
+        val bytes = dc.wire.bytes
+        (1 to buf.toPayloadIndex.readableBytes).foreach(_ => bytes.writeByte(buf.readByte))
       }
+      catch {
+        case t: Throwable =>
+          dc.rollbackOnClose()
+          throw t
+      } finally dc.close()
+
+      countingTailer.increment()
     }
-  }
+  } else Buffers.InvalidReq
 
   // todo: collections without allocation?
-  private def isValid(buf: ByteBuf) = (0 until buf.resetToFour.readableBytes).forall(_ => AllowedChars.contains(buf.readByte))
+  private def isValid(buf: ByteBuf) = (1 to buf.toPayloadIndex.readableBytes).forall(_ => AllowedChars.contains(buf.readByte))
 
   private def read(buf: ByteBuf, writeBuf: ByteBuf) = {
-//    Thread.sleep(1000) // todo: remove
-    val str = buf.resetToFour.toString(INDEX_FOUR, buf.readableBytes, US_ASCII)
-    invalidOrElse(NumberUtils.isDigits(str)) {
+    val str = buf.toPayloadIndex.toString(payloadStartIndex, buf.readableBytes, US_ASCII)
+    if (NumberUtils.isDigits(str)) {
       val n = str.toInt
-
-      invalidOrElse(n > 0) {
+      if (n > 0) {
         readLock.synchronized { // todo: synchronized
           if (countingTailer.available >= n) readIt(n, writeBuf)
-          else ErrorBuf
+          else Buffers.Error
         }
+      } else {
+        log.error("{} should be positive integer > 0", n)
+        Buffers.InvalidReq
       }
+    } else {
+      log.error("{} is not a valid integer", str)
+      Buffers.InvalidReq
     }
   }
 
@@ -128,7 +130,7 @@ class NettyServerHandlerScala(
       try {
         if (doc.isPresent) {
           val by = doc.wire().bytes()
-          (0 until by.length()).foreach(_ => buf.writeByte(by.readByte()))
+          (1 to by.length()).foreach(_ => buf.writeByte(by.readByte()))
           buf.writeByte('\n')
         } else {
           throw new IllegalStateException("") // todo
@@ -148,9 +150,7 @@ class NettyServerHandlerScala(
     buf.writeByte('\r').writeByte('\n')
   }
 
-  @inline private def ok(ignore: Any) = OK_BUF
-
-  @inline private def invalidOrElse(b: Boolean)(f: => ByteBuf) = if (b) f else INVALID_REQUEST_BUF
+  @inline private def ok(ignore: Any) = Buffers.Ok
 }
 
 // todo?
@@ -160,4 +160,5 @@ case object Quit extends ReqType
 case object Get extends ReqType
 case object Put extends ReqType
 case object Unknown extends ReqType
+
 // todo?

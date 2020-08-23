@@ -1,30 +1,27 @@
 package task
 
-import java.io.File
 import java.nio.file.Files
 
-import scala.language.implicitConversions
-
-import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
-import net.openhft.chronicle.queue.{ChronicleQueue, ExcerptTailer, RollCycles}
-import org.apache.commons.lang3.RandomStringUtils
+import net.openhft.chronicle.queue.{ChronicleQueue, RollCycles}
 import org.apache.commons.lang3.RandomStringUtils.{randomAlphabetic, randomAlphanumeric}
-import org.mockito.ArgumentMatchers
-import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 import task.Constants._
-import task.client.finagle.{Echo, FinagleBaseTopLevelClient}
+import task.Tests._
+import task.client.finagle.{TcpClient, FinagleBaseTopLevelClient}
 import task.netty.NettyServerScala
-import Tests._
+
+import scala.language.implicitConversions
 
 object Tests {
-  val invalidRequestDef: String = invalidReq.replace("\r\n", "")
-  val error            : String = Error.replace("\r\n", "")
-  val Ok               : String = ok.replace("\r\n", "")
+  val InvalidReq: String = removeSeparators(Constants.InvalidReq)
+  val ErrorReq  : String = removeSeparators(Constants.Error)
+  val Ok        : String = removeSeparators(Constants.Ok)
+
+  private def removeSeparators(s: String) = s.replace("\r\n", "")
 }
 
 class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfter {
@@ -32,7 +29,7 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
   before(shiftToEnd())
 
   private val port   = 10042
-  private val client = new FinagleBaseTopLevelClient(Echo.newClient(s"localhost:$port").toService)
+  private val client = new FinagleBaseTopLevelClient(TcpClient.newClient(s"localhost:$port").toService)
 
   "asdasd0" should "TABLE" in {
     val blabla = randomAlphabetic(5)
@@ -90,11 +87,11 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
   }
 
   "asdasd3" should "return return ERR if read more one more value after write-read" in {
-    put(randomAlphabetic(5)).get(1).get(1) shouldBe error
+    put(randomAlphabetic(5)).get(1).get(1) shouldBe ErrorReq
   }
 
   "asdasd34" should "return return ERR if read more values" in {
-    put(randomAlphabetic(5)).get(2) shouldBe error
+    put(randomAlphabetic(5)).get(2) shouldBe ErrorReq
   }
 
   "asdasd4" should "return values in the same order on multiple reads" in {
@@ -113,13 +110,13 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
 
     val t: TableFor2[() => String, String] = Table(
       ("func", "expected"),
-      (get(0), invalidRequestDef),
-      (get(-1), invalidRequestDef),
-      (client.writeRead("GET bla"), invalidRequestDef),
-      (put(""), invalidRequestDef),
-      (put("?"), invalidRequestDef),
-      (put("invalid?string"), invalidRequestDef),
-      (put("valid string and invalid?string"), invalidRequestDef),
+      (get(0), InvalidReq),
+      (get(-1), InvalidReq),
+      (client.writeRead("GET bla"), InvalidReq),
+      (put(""), InvalidReq),
+      (put("?"), InvalidReq),
+      (put("invalid?string"), InvalidReq),
+      (put("valid string and invalid?string"), InvalidReq),
     )
 
     testTable(t)

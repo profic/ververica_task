@@ -4,7 +4,6 @@ import java.util.concurrent.atomic.AtomicLong
 
 import net.openhft.chronicle.queue.ExcerptTailer
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
-import org.apache.commons.lang3.RandomStringUtils
 import org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric
 
 class MessageCount(queue: SingleChronicleQueue, consumer: ExcerptTailer) {

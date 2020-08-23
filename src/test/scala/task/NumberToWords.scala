@@ -2,10 +2,6 @@ package task
 
 object NumberToWords {
 
-  def main(args: Array[String]): Unit = {
-    println(apply(123456))
-  }
-
   private val singleDigit = Array("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
 
   private val tensDigits = Array("", "ten", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
