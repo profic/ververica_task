@@ -1,28 +1,23 @@
 package task
 
+import java.io.{Closeable, File}
 import java.nio.file.Files
 
 import net.openhft.chronicle.queue.{ChronicleQueue, RollCycles}
+import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils.{randomAlphabetic, randomAlphanumeric}
+import org.mockito.Mockito.spy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
-import task.Constants._
 import task.Tests._
-import task.client.finagle.{TcpClient, FinagleBaseTopLevelClient}
-import task.netty.NettyServerScala
+import task.client.{FinagleBaseTopLevelClient, TcpClient}
+import task.server.NettyServerScala
+import task.store.Queue
 
 import scala.language.implicitConversions
-
-object Tests {
-  val InvalidReq: String = removeSeparators(Constants.InvalidReq)
-  val ErrorReq  : String = removeSeparators(Constants.Error)
-  val Ok        : String = removeSeparators(Constants.Ok)
-
-  private def removeSeparators(s: String) = s.replace("\r\n", "")
-}
 
 class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfter {
 
@@ -48,42 +43,46 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
 
   "very long word" should "work" in {
     val longSingleWord = randomAlphanumeric(100000)
-    putAndCheckOk(longSingleWord).get(1) shouldBe s"$longSingleWord\n"
+    putAndCheckOk(longSingleWord).get(1) shouldBe longSingleWord.addNewLine
   }
 
   "very long line" should "work" in {
-    val longLine = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
-    putAndCheckOk(longLine).get(1) shouldBe s"$longLine\n"
+    val longLine = randomWords
+    putAndCheckOk(longLine).get(1) shouldBe longLine.addNewLine
   }
 
   "multiple very long lines returned in multiple requests" should "work" in {
-    val longLine1 = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
-    val longLine2 = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
-    val longLine3 = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
+    val longLine1 = randomWords
+    val longLine2 = randomWords
+    val longLine3 = randomWords
+
     putAndCheckOk(longLine1).putAndCheckOk(longLine2).putAndCheckOk(longLine3)
-    get(1) shouldBe s"$longLine1\n"
-    get(1) shouldBe s"$longLine2\n"
-    get(1) shouldBe s"$longLine3\n"
+
+    get(1) shouldBe longLine1.addNewLine
+    get(1) shouldBe longLine2.addNewLine
+    get(1) shouldBe longLine3.addNewLine
   }
 
   "multiple very long lines returned in one request" should "work" in {
-    val longLine1 = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
-    val longLine2 = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
-    val longLine3 = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
+    val longLine1 = randomWords
+    val longLine2 = randomWords
+    val longLine3 = randomWords
+
     putAndCheckOk(longLine1).putAndCheckOk(longLine2).putAndCheckOk(longLine3)
-    get(3) shouldBe List(longLine1, longLine2, longLine3).map(_ + "\n").mkString
+
+    get(3) shouldBe List(longLine1, longLine2, longLine3).map(_.addNewLine).mkString
   }
 
   "asdasd1" should "return read value after write" in {
     val blabla = randomAlphabetic(5)
-    put(blabla).get(1) shouldBe s"$blabla\n"
+    put(blabla).get(1) shouldBe blabla.addNewLine
   }
 
   "asdasd2" should "return read value after write (twice)" in {
     val blabla = randomAlphabetic(5)
 
-    putAndCheckOk(blabla).get(1) shouldBe s"$blabla\n"
-    putAndCheckOk(blabla).get(1) shouldBe s"$blabla\n"
+    putAndCheckOk(blabla).get(1) shouldBe blabla.addNewLine
+    putAndCheckOk(blabla).get(1) shouldBe blabla.addNewLine
   }
 
   "asdasd3" should "return return ERR if read more one more value after write-read" in {
@@ -97,7 +96,7 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
   "asdasd4" should "return values in the same order on multiple reads" in {
     (1 to 10).map(_.toString).foreach(client.put)
 
-    def test(i1: Int, i2: Int) = get(2) shouldBe (i1 to i2).map(s => s"$s\n").mkString
+    def test(i1: Int, i2: Int) = get(2) shouldBe (i1 to i2).map(s => s"$s".addNewLine).mkString
 
     test(1, 2)
     test(3, 4)
@@ -127,11 +126,9 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     shiftToEnd()
   }
 
-  private def shiftToEnd(): Unit = /* synchronized */ { // todo: synchronized
-    //    consumer.toEnd
-  }
+  private def shiftToEnd(): Unit = queue.drainAll()
 
-  private def concat(s: String, n: Int = 1) = (1 to n).map(i => s"$i$s\n").mkString
+  private def concat(s: String, n: Int = 1) = (1 to n).map(i => s"$i${s.addNewLine}").mkString
 
   private def quit() = client.quit()
   private def get(n: Int) = client.get(n)
@@ -144,28 +141,42 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     res
   }.last
 
-  implicit class SOps(ignore: String) {
+  implicit class SOps(s: String) {
     def get(n: Int): String = MainTest.this.get(n)
     def putWithSeqNumber(s: String, n: Int = 1): String = MainTest.this.putWithSeqNumber(s, n)
     def quit(): String = MainTest.this.quit()
     def putAndCheckOk(s: String, n: Int = 1): String = MainTest.this.putAndCheckOk(s, n)
+    def addNewLine: String = s + "\n"
   }
 
   private implicit def futureToFunc(f: => String): () => String = () => f
 
-  override protected def beforeAll(): Unit = {
-    val path = Files.createTempDirectory("tmp").toFile
-    path.deleteOnExit()
+  private var server: Closeable = _
+  private var queue : Queue     = _
+  private var tmpDir: File      = _
 
-    val queue = ChronicleQueue
-      .singleBuilder(path)
+  private def randomWords = (1 to 10000).map(_ => randomAlphanumeric(2, 10)).mkString(" ")
+
+  override protected def beforeAll(): Unit = {
+    tmpDir = Files.createTempDirectory("tmp").toFile
+    //    tmpDir = new File(s"""d:/${RandomStringUtils.randomAlphanumeric(3)}/${RandomStringUtils.randomAlphanumeric(3)}""")
+
+    sys.addShutdownHook(afterAll())
+
+    val q = spy(ChronicleQueue
+      .singleBuilder(tmpDir)
       .maxTailers(1)
       .rollCycle(RollCycles.LARGE_HOURLY)
-      .build()
-    NettyServerScala.newServer(port, queue)
+      .build())
+
+    queue = new Queue(q)
+
+    server = NettyServerScala.newServer(port, queue)
   }
 
   override protected def afterAll(): Unit = {
-    //    Await.ready(server.close(), 5.seconds)
+    server.close()
+    queue.close()
+    FileUtils.deleteDirectory(tmpDir)
   }
 }

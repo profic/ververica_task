@@ -8,8 +8,8 @@ object Constants {
 
   val Shutdown   = "SHUTDOWN\n"
   val Quit       = "QUIT\n"
-  val InvalidReq = "INVALID_REQUEST\r\n" // todo: delimiter?
-  val Ok         = "OK\r\n" // todo: empty string? delimiter?
+  val InvalidReq = "INVALID_REQUEST\r\n"
+  val Ok         = "OK\r\n"
   val Error      = "ERR\r\n"
   val Put        = "PUT "
   val Get        = "GET "

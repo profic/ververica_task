@@ -1,4 +1,4 @@
-package task.netty
+package task.server
 
 import java.io.Closeable
 
@@ -13,70 +13,53 @@ import io.netty.handler.codec.LineBasedFrameDecoder
 import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue
 import net.openhft.chronicle.queue.{ChronicleQueue, RollCycles}
 import org.apache.commons.lang3.RandomStringUtils
-import task.MessageCount
+import task.store.{MessageCount, Queue}
 
 object NettyServerScala {
 
+  // todo: remove
+  def main(args: Array[String]): Unit = {
+    serverForGatling()
+  }
+
   def serverForGatling(): Unit = {
-    val queue = queueForGatling
 
     //    newServer(8080, queue)
-    newServer(10042, queue)
+    //    val path = """d:\ververica_task_prepared_data"""
+    val path = """d:\ververica_task"""
+    newServer(10042, Queue(path))
   }
 
-  def queueForGatling: SingleChronicleQueue = {
-    val path = """d:\ververica_task_prepared_data"""
-    //    val path = """d:\ververica_task_prepared_data_text"""
+  def newServer(port: Int, q: Queue): Closeable = {
+    var serverFuture: ChannelFuture = null
+    val factory                     = if (Epoll.isAvailable) EpollFactory else NioFactory
+    val bossGroup                   = factory.eventLoopGroup(1)
+    val workerGroup                 = factory.eventLoopGroup()
 
-    ChronicleQueue
-      .singleBuilder(path)
-      .maxTailers(1)
-      .rollCycle(RollCycles.LARGE_HOURLY)
-      .build()
-  }
-
-  def newServer(port: Int, q: SingleChronicleQueue) = {
-    val factory     = if (Epoll.isAvailable) EpollFactory else NioFactory
-    val bossGroup   = factory.eventLoopGroup(1)
-    val workerGroup = factory.eventLoopGroup()
-
-    //            val tailer = q.createTailer(defaultTailer).disableThreadSafetyCheck(true) // todo
-    val tailer         = q.createTailer(RandomStringUtils.randomAlphanumeric(10)).disableThreadSafetyCheck(true)
-    val countingTailer = new MessageCount(q, tailer)
-    val appender       = q.acquireAppender()
-    val sF: Closeable  = () => {
+    def shutdownServer(): Unit = {
+      serverFuture.cancel(true)
       bossGroup.shutdownGracefully().sync()
       workerGroup.shutdownGracefully().sync()
       q.close()
-      Future.Done
     }
 
-    // todo
-    //    bootstrap.setOption("tcpNoDelay", true);
-    //    bootstrap.setOption("keepAlive", true);
+    val closeServer: Closeable = () => shutdownServer()
 
-    val b = new ServerBootstrap()
+    val server = new ServerBootstrap()
       .group(bossGroup, workerGroup)
-      .option(ChannelOption.SO_BACKLOG, Integer.valueOf(100)) // todo
       .childHandler(new ChannelInitializer[SocketChannel]() {
         override def initChannel(ch: SocketChannel): Unit = {
           ch.pipeline
-            //            .addLast(new LoggingHandler()) // todo
             .addLast(new LineBasedFrameDecoder(1000000)) // todo: line len
-            .addLast(new NettyServerHandlerScala(ch, appender, tailer, countingTailer, sF))
+            .addLast(new NettyServerHandlerScala(ch, q, closeServer))
         }
       })
       .channelFactory(factory.channelFactory)
-    val f = b.bind(port).sync() // todo
-    // Wait until the server socket is closed.
 
-    sys.runtime.addShutdownHook(new Thread(() => {
-      bossGroup.shutdownGracefully().sync()
-      workerGroup.shutdownGracefully().sync()
-      q.close()
-    }))
+    sys.addShutdownHook(shutdownServer())
 
-    //    f.channel.closeFuture.sync()  // todo
+    serverFuture = server.bind(port).sync() // todo
+    closeServer
   }
 }
 

@@ -1,4 +1,4 @@
-package task.client.finagle
+package task.client
 
 import java.net.SocketAddress
 import java.nio.charset.StandardCharsets.US_ASCII
@@ -17,24 +17,23 @@ import io.netty.channel.ChannelPipeline
 import io.netty.handler.codec.DelimiterBasedFrameDecoder
 import io.netty.handler.codec.string.{StringDecoder, StringEncoder}
 import task.Constants._
-import task.client.finagle.TcpClient.EchoPipeline
+import task.client.TcpClient.Pipeline
 
 class FinagleBaseTopLevelClient(client: Service[String, String]) {
 
-  private val timeout = Duration.fromSeconds(5) // todo
+  private val timeout = Duration.fromSeconds(5)
 
-  def writeRead(str: String): String = result(client(s"$str\n") /*, timeout*/)
-  def quit(): String = result(client(Quit) /*, timeout*/)
-  def shutdown(): String = result(client(Shutdown) /*, timeout*/)
-  def put(s: String): String = result(client(s"$Put$s\n") /*, timeout*/)
-  def get(n: Int): String = result(client(s"$Get$n\n") /*, timeout*/)
-  def close(): Unit = ready(client.close() /*, timeout*/)
-  def getAsync(n: Int): Future[String] = client(s"$Get$n\n")
+  def writeRead(str: String): String = result(client(s"$str\n"), timeout)
+  def quit(): String = result(client(Quit), timeout)
+  def shutdown(): String = result(client(Shutdown), timeout)
+  def put(s: String): String = result(client(s"$Put$s\n"), timeout)
+  def get(n: Int): String = result(client(s"$Get$n\n"), timeout)
+  def close(): Unit = ready(client.close(), timeout)
 }
 
 object TcpClient extends Client[String, String] {
 
-  object EchoPipeline extends (ChannelPipeline => Unit) {
+  object Pipeline extends (ChannelPipeline => Unit) {
 
     def apply(channelPipeline: ChannelPipeline): Unit = channelPipeline
       .addLast(new StringEncoder())
@@ -51,7 +50,7 @@ object TcpClient extends Client[String, String] {
   override def newClient(dest: Name, label: String): ServiceFactory[String, String] = TcpClient().newClient(dest, label)
 }
 
-private class TcpClient(
+class TcpClient(
   override val stack: Stack[ServiceFactory[String, String]] = StackClient.newStack,
   override val params: Params = Params.empty
 ) extends StdStackClient[String, String, TcpClient] {
@@ -63,7 +62,7 @@ private class TcpClient(
   protected def copy1(s: Stack[ServiceFactory[String, String]], p: Params): TcpClient = new TcpClient(s, p)
 
   override protected def newTransporter(addr: SocketAddress): Transporter[String, String, TransportContext] = {
-    Netty4Transporter.raw[String, String](EchoPipeline, addr, Params.empty)
+    Netty4Transporter.raw[String, String](Pipeline, addr, Params.empty)
   }
 
   override protected def newDispatcher(transport: Transport[In, Out] {
