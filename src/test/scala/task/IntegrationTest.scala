@@ -3,55 +3,52 @@ package task
 import java.io.{Closeable, File}
 import java.nio.file.Files
 
-import net.openhft.chronicle.queue.{ChronicleQueue, RollCycles}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils.{randomAlphabetic, randomAlphanumeric}
-import org.mockito.Mockito.spy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
-import task.Tests._
 import task.client.{FinagleBaseTopLevelClient, TcpClient}
 import task.server.NettyServerScala
 import task.store.Queue
 
 import scala.language.implicitConversions
 
-class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class IntegrationTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfter {
 
   before(shiftToEnd())
 
   private val port   = 10042
   private val client = new FinagleBaseTopLevelClient(TcpClient.newClient(s"localhost:$port").toService)
 
-  "asdasd0" should "TABLE" in {
-    val blabla = randomAlphabetic(5)
+  "it" should "return correct last read value" in {
+    val str = randomAlphabetic(5)
 
     val t: TableFor2[() => String, String] = Table(
       ("func", "expected last response"),
-      (putWithSeqNumber(blabla).get(1), concat(blabla)),
-      (putWithSeqNumber(blabla).putWithSeqNumber(blabla).get(1).get(1), concat(blabla)),
-      (putWithSeqNumber(blabla, 2).get(2), concat(blabla, 2)),
-      (putWithSeqNumber(blabla, 100).get(100), concat(blabla, 100)),
-      (putWithSeqNumber(blabla, 100).get(50), concat(blabla, 50)),
+      (putWithSeqNumber(str).get(1), concat(str)),
+      (putWithSeqNumber(str).putWithSeqNumber(str).get(1).get(1), concat(str)),
+      (putWithSeqNumber(str, 2).get(2), concat(str, 2)),
+      (putWithSeqNumber(str, 100).get(100), concat(str, 100)),
+      (putWithSeqNumber(str, 100).get(50), concat(str, 50)),
     )
 
     testTable(t)
   }
 
-  "very long word" should "work" in {
+  "it" should "correctly write and read very long word" in {
     val longSingleWord = randomAlphanumeric(100000)
     putAndCheckOk(longSingleWord).get(1) shouldBe longSingleWord.addNewLine
   }
 
-  "very long line" should "work" in {
+  "it" should "correctly write and read very long line" in {
     val longLine = randomWords
     putAndCheckOk(longLine).get(1) shouldBe longLine.addNewLine
   }
 
-  "multiple very long lines returned in multiple requests" should "work" in {
+  "it" should "correctly write and read multiple very long lines returned in multiple requests" in {
     val longLine1 = randomWords
     val longLine2 = randomWords
     val longLine3 = randomWords
@@ -63,7 +60,7 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     get(1) shouldBe longLine3.addNewLine
   }
 
-  "multiple very long lines returned in one request" should "work" in {
+  "it" should "correctly write and read multiple very long lines returned in one request" in {
     val longLine1 = randomWords
     val longLine2 = randomWords
     val longLine3 = randomWords
@@ -73,27 +70,27 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     get(3) shouldBe List(longLine1, longLine2, longLine3).map(_.addNewLine).mkString
   }
 
-  "asdasd1" should "return read value after write" in {
-    val blabla = randomAlphabetic(5)
-    put(blabla).get(1) shouldBe blabla.addNewLine
+  "it" should "read value after write" in {
+    val str = randomAlphabetic(5)
+    put(str).get(1) shouldBe str.addNewLine
   }
 
-  "asdasd2" should "return read value after write (twice)" in {
-    val blabla = randomAlphabetic(5)
+  "it" should "read value after write (twice)" in {
+    val str = randomAlphabetic(5)
 
-    putAndCheckOk(blabla).get(1) shouldBe blabla.addNewLine
-    putAndCheckOk(blabla).get(1) shouldBe blabla.addNewLine
+    putAndCheckOk(str).get(1) shouldBe str.addNewLine
+    putAndCheckOk(str).get(1) shouldBe str.addNewLine
   }
 
-  "asdasd3" should "return return ERR if read more one more value after write-read" in {
+  "it" should "return return ERR if read more one more value after write-read" in {
     put(randomAlphabetic(5)).get(1).get(1) shouldBe ErrorReq
   }
 
-  "asdasd34" should "return return ERR if read more values" in {
+  "it" should "return return ERR if read more values than exists" in {
     put(randomAlphabetic(5)).get(2) shouldBe ErrorReq
   }
 
-  "asdasd4" should "return values in the same order on multiple reads" in {
+  "it" should "return values in the same order on multiple reads" in {
     (1 to 10).map(_.toString).foreach(client.put)
 
     def test(i1: Int, i2: Int) = get(2) shouldBe (i1 to i2).map(s => s"$s".addNewLine).mkString
@@ -105,13 +102,13 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     test(9, 10)
   }
 
-  "asdasd7" should "TABLE 22" in {
+  "it" should "return InvalidReq" in {
 
     val t: TableFor2[() => String, String] = Table(
       ("func", "expected"),
       (get(0), InvalidReq),
       (get(-1), InvalidReq),
-      (client.writeRead("GET bla"), InvalidReq),
+      (client.writeAndRead("GET bla"), InvalidReq),
       (put(""), InvalidReq),
       (put("?"), InvalidReq),
       (put("invalid?string"), InvalidReq),
@@ -142,10 +139,10 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
   }.last
 
   implicit class SOps(s: String) {
-    def get(n: Int): String = MainTest.this.get(n)
-    def putWithSeqNumber(s: String, n: Int = 1): String = MainTest.this.putWithSeqNumber(s, n)
-    def quit(): String = MainTest.this.quit()
-    def putAndCheckOk(s: String, n: Int = 1): String = MainTest.this.putAndCheckOk(s, n)
+    def get(n: Int): String = IntegrationTest.this.get(n)
+    def putWithSeqNumber(s: String, n: Int = 1): String = IntegrationTest.this.putWithSeqNumber(s, n)
+    def quit(): String = IntegrationTest.this.quit()
+    def putAndCheckOk(s: String, n: Int = 1): String = IntegrationTest.this.putAndCheckOk(s, n)
     def addNewLine: String = s + "\n"
   }
 
@@ -163,14 +160,7 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
 
     sys.addShutdownHook(afterAll())
 
-    val q = spy(ChronicleQueue
-      .singleBuilder(tmpDir)
-      .maxTailers(1)
-      .rollCycle(RollCycles.LARGE_HOURLY)
-      .build())
-
-    queue = new Queue(q)
-
+    queue = Queue(tmpDir.getAbsolutePath)
     server = NettyServerScala.newServer(port, queue)
   }
 
@@ -179,4 +169,10 @@ class MainTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with Bef
     queue.close()
     FileUtils.deleteDirectory(tmpDir)
   }
+
+  val InvalidReq: String = removeLinebreaks(Constants.InvalidReq)
+  val ErrorReq  : String = removeLinebreaks(Constants.Error)
+  val Ok        : String = removeLinebreaks(Constants.Ok)
+
+  private def removeLinebreaks(s: String) = s.replace("\r\n", "")
 }

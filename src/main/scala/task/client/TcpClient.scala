@@ -23,7 +23,7 @@ class FinagleBaseTopLevelClient(client: Service[String, String]) {
 
   private val timeout = Duration.fromSeconds(5)
 
-  def writeRead(str: String): String = result(client(s"$str\n"), timeout)
+  def writeAndRead(str: String): String = result(client(s"$str\n"), timeout)
   def quit(): String = result(client(Quit), timeout)
   def shutdown(): String = result(client(Shutdown), timeout)
   def put(s: String): String = result(client(s"$Put$s\n"), timeout)

@@ -4,7 +4,7 @@ object Constants {
 
   val AllowedChars: Array[Byte] = (Array(' ') ++ ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')).map(_.toByte)
 
-  val defaultTailerName = "default"
+  val DefaultTailerName = "default"
 
   val Shutdown   = "SHUTDOWN\n"
   val Quit       = "QUIT\n"
