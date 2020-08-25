@@ -11,12 +11,16 @@ import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 import task.client.{FinagleBaseTopLevelClient, TcpClient}
-import task.server.NettyServerScala
+import task.server.NettyTcpServer
 import task.store.Queue
 
 import scala.language.implicitConversions
 
 class IntegrationTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+
+  val InvalidReq: String = Constants.InvalidReq.removeLinebreaks
+  val ErrorReq  : String = Constants.Error.removeLinebreaks
+  val Ok        : String = Constants.Ok.removeLinebreaks
 
   before(shiftToEnd())
 
@@ -144,6 +148,7 @@ class IntegrationTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll w
     def quit(): String = IntegrationTest.this.quit()
     def putAndCheckOk(s: String, n: Int = 1): String = IntegrationTest.this.putAndCheckOk(s, n)
     def addNewLine: String = s + "\n"
+    def removeLinebreaks = s.replace("\r\n", "")
   }
 
   private implicit def futureToFunc(f: => String): () => String = () => f
@@ -156,23 +161,18 @@ class IntegrationTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll w
 
   override protected def beforeAll(): Unit = {
     tmpDir = Files.createTempDirectory("tmp").toFile
-    //    tmpDir = new File(s"""d:/${RandomStringUtils.randomAlphanumeric(3)}/${RandomStringUtils.randomAlphanumeric(3)}""")
+    tmpDir.deleteOnExit()
 
     sys.addShutdownHook(afterAll())
 
     queue = Queue(tmpDir.getAbsolutePath)
-    server = NettyServerScala.newServer(port, queue)
+    server = NettyTcpServer.newServer(port, queue)
   }
 
   override protected def afterAll(): Unit = {
+    client.close()
     server.close()
     queue.close()
     FileUtils.deleteDirectory(tmpDir)
   }
-
-  val InvalidReq: String = removeLinebreaks(Constants.InvalidReq)
-  val ErrorReq  : String = removeLinebreaks(Constants.Error)
-  val Ok        : String = removeLinebreaks(Constants.Ok)
-
-  private def removeLinebreaks(s: String) = s.replace("\r\n", "")
 }

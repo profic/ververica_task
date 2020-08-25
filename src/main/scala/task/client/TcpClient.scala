@@ -11,13 +11,14 @@ import com.twitter.finagle.netty4.Netty4Transporter
 import com.twitter.finagle.stats.NullStatsReceiver
 import com.twitter.finagle.transport.{Transport, TransportContext}
 import com.twitter.util.Await.{ready, result}
-import com.twitter.util.{Duration, Future}
+import com.twitter.util.Duration
 import io.netty.buffer.Unpooled.copiedBuffer
 import io.netty.channel.ChannelPipeline
 import io.netty.handler.codec.DelimiterBasedFrameDecoder
 import io.netty.handler.codec.string.{StringDecoder, StringEncoder}
 import task.Constants._
 import task.client.TcpClient.Pipeline
+import task.server.NettyTcpServer
 
 class FinagleBaseTopLevelClient(client: Service[String, String]) {
 
@@ -35,12 +36,14 @@ object TcpClient extends Client[String, String] {
 
   object Pipeline extends (ChannelPipeline => Unit) {
 
-    def apply(channelPipeline: ChannelPipeline): Unit = channelPipeline
-      .addLast(new StringEncoder())
-      .addLast(
-        new DelimiterBasedFrameDecoder(1000000, true, true, copiedBuffer("\r\n", US_ASCII)), // todo: size?
-        new StringDecoder()
-      )
+    def apply(channelPipeline: ChannelPipeline): Unit = {
+      val maxLineSize = NettyTcpServer.config.getInt("max-line-size")
+      channelPipeline
+        .addLast(new StringEncoder())
+        .addLast(new DelimiterBasedFrameDecoder(maxLineSize, true, true, copiedBuffer("\r\n", US_ASCII)))
+        .addLast(new StringDecoder())
+
+    }
   }
 
   def apply(): TcpClient = new TcpClient()

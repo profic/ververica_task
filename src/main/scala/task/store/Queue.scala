@@ -12,30 +12,31 @@ import task.Constants
 import task.Ops.repeat
 
 object Queue {
-  def apply(path: String) = new Queue(
-    ChronicleQueue
+  def apply(path: String): Queue = {
+    val readerListener = new ReaderListener(path)
+    val queue          = ChronicleQueue
       .singleBuilder(path)
       .maxTailers(1)
+      .storeFileListener(readerListener)
       .rollCycle(RollCycles.LARGE_HOURLY)
       .build()
-  )
+    new Queue(queue)
+  }
 }
 
 class Queue(q: SingleChronicleQueue) {
 
   private val log = Logger(getClass)
 
-  private val writeLock = new Object()
-  private val readLock  = new Object()
+  private val readLock = new Object()
 
-  private val producer = q.acquireAppender()
   private val consumer = q.createTailer(Constants.DefaultTailerName).disableThreadSafetyCheck(true)
 
   private final val msgCount = {
-    val countingTailer = q.createTailer(randomAlphanumeric(10)).disableThreadSafetyCheck(true)
+    val tailer = q.createTailer(randomAlphanumeric(10)).disableThreadSafetyCheck(true)
     try {
       val consumerIndex = consumer.index
-      val lastIndex     = countingTailer.toEnd.index
+      val lastIndex     = tailer.toEnd.index
 
       val count = (consumerIndex, lastIndex) match {
         case (0, 0) => 0
@@ -44,13 +45,13 @@ class Queue(q: SingleChronicleQueue) {
       }
 
       new AtomicLong(count)
-    } finally countingTailer.close()
+    } finally tailer.close()
   }
 
   def close(): Unit = q.close()
 
-  def write(buf: ByteBuf): Unit = writeLock.synchronized {
-    val doc = producer.writingDocument
+  def write(buf: ByteBuf): Unit = {
+    val doc = q.acquireAppender().writingDocument
     try {
       val bytes = doc.wire.bytes
       repeat(times = buf.readableBytes) {

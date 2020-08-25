@@ -16,13 +16,13 @@ import task.store.Queue
 
 import scala.language.postfixOps
 
-class NettyServerHandlerScala(
+class NettyServerHandler(
   private val connection: SocketChannel,
   private val q: Queue,
   private val server: Closeable
 ) extends SimpleChannelInboundHandler[ByteBuf] {
 
-  import NettyServerHandlerScala._
+  import NettyServerHandler._
 
   require(connection != null)
   require(q != null)
@@ -80,6 +80,6 @@ class NettyServerHandlerScala(
   @inline private def ok(ignore: Any) = Buffers.Ok
 }
 
-object NettyServerHandlerScala {
+object NettyServerHandler {
   private val log = Logger(getClass)
 }

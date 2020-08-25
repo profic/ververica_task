@@ -2,8 +2,8 @@ package task
 
 import java.nio.charset.StandardCharsets.US_ASCII
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.buffer.Unpooled.{unreleasableBuffer, wrappedBuffer}
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.concurrent.FastThreadLocal
 
 object Buffers {
@@ -20,7 +20,6 @@ object Buffers {
   private val okBUf         = getBuf(Constants.Ok)
   private val errorBuf      = getBuf(Constants.Error)
 
-  // todo: retainedDuplicate or retain
   def Shutdown: ByteBuf = shutdownBuf.get.resetReaderIndex
   def Quit: ByteBuf = quitBuf.get.resetReaderIndex
   def InvalidReq: ByteBuf = invalidReqBuf.get.resetReaderIndex
