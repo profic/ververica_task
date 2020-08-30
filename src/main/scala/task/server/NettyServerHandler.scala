@@ -31,9 +31,7 @@ class NettyServerHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf): Unit = {
     val buf = msg.asInstanceOf[ByteBuf]
     if (buf.isGet) {
-      val writeBuf = ctx.alloc().buffer()
-      try ctx.writeAndFlush(read(buf, writeBuf.retain()))
-      finally writeBuf.release()
+      ctx.writeAndFlush(read(ctx, buf))
     } else {
       val res =
         if (buf.isPut) write(buf)
@@ -44,6 +42,27 @@ class NettyServerHandler(
     }
   }
 
+  private def read(ctx: ChannelHandlerContext, buf: ByteBuf) = {
+    val str = buf.moveToPayloadIndex.toString(Buffers.commandOffset, buf.readableBytes, US_ASCII)
+    if (NumberUtils.isDigits(str)) {
+      val n = str.toInt
+      if (n > 0) {
+        val writeBuf = ctx.alloc().buffer().retain()
+        try {
+          val wroteCount = q.read(n, to = writeBuf)
+          if (wroteCount > 0) writeBuf
+          else Buffers.Error
+        } finally writeBuf.release()
+      }
+      else {
+        log.error("{} should be positive integer > 0", n)
+        Buffers.InvalidReq
+      }
+    } else {
+      log.error("{} is not a valid integer", str)
+      Buffers.InvalidReq
+    }
+  }
   private def shutdown = ok {
     log.info("shutting down server")
     server.close()
@@ -57,25 +76,6 @@ class NettyServerHandler(
   private def write(buf: ByteBuf) = if (isValid(buf)) ok(q.write(buf.moveToPayloadIndex)) else Buffers.InvalidReq
 
   private def isValid(buf: ByteBuf) = (1 to buf.moveToPayloadIndex.readableBytes).forall(_ => AllowedChars.contains(buf.readByte))
-
-  private def read(buf: ByteBuf, writeBuf: ByteBuf) = {
-    val str = buf.moveToPayloadIndex.toString(Buffers.commandOffset, buf.readableBytes, US_ASCII)
-    if (NumberUtils.isDigits(str)) {
-      val n = str.toInt
-      if (n > 0) {
-        val wroteCount = q.read(n, to = writeBuf)
-        if (wroteCount > 0) writeBuf
-        else Buffers.Error
-      }
-      else {
-        log.error("{} should be positive integer > 0", n)
-        Buffers.InvalidReq
-      }
-    } else {
-      log.error("{} is not a valid integer", str)
-      Buffers.InvalidReq
-    }
-  }
 
   @inline private def ok(ignore: Any) = Buffers.Ok
 }

@@ -20,6 +20,9 @@ import task.Constants._
 import task.client.TcpClient.Pipeline
 import task.server.NettyTcpServer
 
+/**
+ * Classes in this file are created for testing purposes, even though they are fully-functional.
+ */
 class FinagleBaseTopLevelClient(client: Service[String, String]) {
 
   private val timeout = Duration.fromSeconds(5)

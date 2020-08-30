@@ -13,7 +13,7 @@ import task.Ops.repeat
 
 object Queue {
   def apply(path: String): Queue = {
-    val readerListener = new ReaderListener(path)
+    val readerListener = new ReadListener(path)
     val queue          = ChronicleQueue
       .singleBuilder(path)
       .maxTailers(1)
@@ -64,11 +64,11 @@ class Queue(q: SingleChronicleQueue) {
         throw t
     } finally doc.close()
 
-    increaseMsgCount()
+    increaseSize()
   }
 
   def read(n: Int, to: ByteBuf): Int = readLock.synchronized {
-    if (available >= n) {
+    if (size >= n) {
       repeat(n) {
         val doc = consumer.readingDocument
         try {
@@ -79,7 +79,7 @@ class Queue(q: SingleChronicleQueue) {
             }
             to.addNewLine()
           } else {
-            throw new IllegalStateException("Document should exist. This can indicate an bug in MessageCount")
+            throw new IllegalStateException("Document should exist. This can indicate an bug in a availabla message counting.")
           }
         } catch {
           case t: Throwable =>
@@ -88,7 +88,7 @@ class Queue(q: SingleChronicleQueue) {
             throw t
         }
 
-        decreaseMsgCount()
+        decreaseSize()
       }
 
       to.writeByte('\r').addNewLine().readableBytes()
@@ -104,8 +104,8 @@ class Queue(q: SingleChronicleQueue) {
     consumer.toEnd
   }
 
-  private def decreaseMsgCount(): Unit = msgCount.decrementAndGet()
-  private def increaseMsgCount(): Unit = msgCount.incrementAndGet()
-  private def available: Long = msgCount.get()
+  private def decreaseSize(): Unit = msgCount.decrementAndGet()
+  private def increaseSize(): Unit = msgCount.incrementAndGet()
+  private def size: Long = msgCount.get()
   private def reset(): Unit = msgCount.set(0)
 }

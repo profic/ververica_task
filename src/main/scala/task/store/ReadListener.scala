@@ -13,8 +13,18 @@ import task.Constants
 
 import scala.Ordering.comparatorToOrdering
 
+/**
+ * The purpose of this class is to delete useless files produced by Chronicle Queue. File considered
+ * as a  useless if the position of the consumer is beyond the index range of the file.
+ *
+ * Files are scanned and deleted (if any) on object creation, then it starts to listen for a current file release.
+ * Due to Chronicle Queue semantics only onAcquired method is called, so we need to remember previous acquired
+ * file for being able to delete.
+ *
+ * @param path -  data folder
+ */
 @NotThreadSafe
-class ReaderListener(path: String) extends StoreFileListener {
+class ReadListener(path: String) extends StoreFileListener {
 
   private val log = Logger(getClass)
 

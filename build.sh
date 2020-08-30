@@ -8,5 +8,5 @@ else
     unzip sbt.zip
 fi
 
-sbt/bin/sbt universal:packageBin
+sbt/bin/sbt clean universal:packageBin
 unzip target/universal/ververica_task-0.1.zip
