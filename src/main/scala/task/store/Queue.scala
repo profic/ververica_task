@@ -29,8 +29,10 @@ class Queue(q: SingleChronicleQueue) {
   private val log = Logger(getClass)
 
   private val readLock = new Object()
+  private val writeLock = new Object()
 
   private val consumer = q.createTailer(Constants.DefaultTailerName).disableThreadSafetyCheck(true)
+  private val producer = q.acquireAppender()
 
   private final val msgCount = {
     val tailer = q.createTailer(randomAlphanumeric(10)).disableThreadSafetyCheck(true)
@@ -50,8 +52,8 @@ class Queue(q: SingleChronicleQueue) {
 
   def close(): Unit = q.close()
 
-  def write(buf: ByteBuf): Unit = {
-    val doc = q.acquireAppender().writingDocument
+  def write(buf: ByteBuf): Unit = writeLock.synchronized {
+    val doc = producer.writingDocument
     try {
       val bytes = doc.wire.bytes
       repeat(times = buf.readableBytes) {
